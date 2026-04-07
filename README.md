@@ -4,10 +4,10 @@
 Le projet *springboot-streaming-multipart* est la librairie pour passer le multipart en streaming dans une API Spring Boot.
 
 ## Frameworks
-- [Spring boot](https://spring.io/projects/spring-boot) [@2.7.18](https://docs.spring.io/spring-boot/docs/2.7.18/reference/html)
+- [Spring boot](https://spring.io/projects/spring-boot) [@3.5.14](https://docs.spring.io/spring-boot/3.5/index.html)
 
 ## Dépendances
-- [Apache commons fileUpload](https://commons.apache.org/proper/commons-fileupload)
+- [Apache commons fileUpload](https://commons.apache.org/proper/commons-fileupload/commons-fileupload2-jakarta-servlet5/index.html)
 
 ## Packages
 **org.flcit.springboot.streaming.resolver.StreamingMultipartResolver** => classe qui traite les requests multipart en streaming
@@ -47,7 +47,7 @@ public Response testUploadUnlimitedFilesMultipart(@RequestPart Request request, 
 }
 ```
 
-Avec un objet de données JSON en début de flux et un nombre illimité de fichiers consommé sous forme de [FileItemStream](https://commons.apache.org/proper/commons-fileupload/apidocs/org/apache/commons/fileupload/FileItemStream.html) :
+Avec un objet de données JSON en début de flux et un nombre illimité de fichiers consommé sous forme de [FileItemInput](https://javadoc.io/doc/org.apache.commons/commons-fileupload2-core/latest/org/apache/commons/fileupload2/core/FileItemInput.html) :
 ```java
 @PostMapping(path = TEST_UPLOAD_FILES_URL_2_PATH, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 public Response testUploadUnlimitedFilesStream(@RequestPart Request request, StreamingMultipartHttpServletRequest streamingRequest) {
@@ -75,7 +75,7 @@ Ils sont décodés immédiatement pour les injecter dans les arguments (= param�
 
 ## Configuration
 Utilisation des properties Multipart de Spring Boot :
-[Spring boot Multipart Configuration](https://docs.spring.io/spring-boot/docs/2.7.18/reference/html/application-properties.html#application-properties.web.spring.servlet.multipart.enabled)
+[Spring boot Multipart Configuration](https://docs.spring.io/spring-boot/3.5/appendix/application-properties/index.html#application-properties.web.spring.servlet.multipart.enabled)
 
 ### Limitation des tailles
 Pour désactiver les tailles limites par défaut :
@@ -97,4 +97,4 @@ spring.servlet.streaming.multipart.enabled=false
 Par défaut l'utilisation du streaming est activé.
 
 ## Projets dépendants
-- [postgresql-admin-back](https://github.com/flc-it/postgresql-admin-back)
+- [springboot-bench-webserver](https://github.com/flc-it/springboot-bench-webserver)

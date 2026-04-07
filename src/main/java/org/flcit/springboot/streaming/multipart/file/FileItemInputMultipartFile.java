@@ -5,30 +5,28 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 
-import org.apache.commons.fileupload.FileItemStream;
+import org.apache.commons.fileupload2.core.FileItemInput;
+import org.flcit.springboot.streaming.multipart.resolver.StreamingMultipartResolver.StreamingMultipartHttpServletRequest;
 import org.springframework.util.FileCopyUtils;
 import org.springframework.web.multipart.MultipartFile;
-
-import org.flcit.commons.core.util.StringUtils;
-import org.flcit.springboot.streaming.multipart.resolver.StreamingMultipartResolver.StreamingMultipartHttpServletRequest;
 
 /**
  * 
  * @since 
  * @author Florian Lestic
  */
-public class FileItemStreamMultipartFile implements MultipartFile {
+public class FileItemInputMultipartFile implements MultipartFile {
 
-    private final FileItemStream fileItemStream;
+    private final FileItemInput fileItemInput;
     private final StreamingMultipartHttpServletRequest streamingMultipartHttpServletRequest;
     private boolean preserveFilename;
 
     /**
-     * @param fileItemStream
+     * @param fileItemInput
      * @param streamingMultipartHttpServletRequest
      */
-    public FileItemStreamMultipartFile(FileItemStream fileItemStream, StreamingMultipartHttpServletRequest streamingMultipartHttpServletRequest) {
-        this.fileItemStream = fileItemStream;
+    public FileItemInputMultipartFile(FileItemInput fileItemInput, StreamingMultipartHttpServletRequest streamingMultipartHttpServletRequest) {
+        this.fileItemInput = fileItemInput;
         this.streamingMultipartHttpServletRequest = streamingMultipartHttpServletRequest;
     }
 
@@ -44,7 +42,7 @@ public class FileItemStreamMultipartFile implements MultipartFile {
      */
     @Override
     public String getName() {
-        return fileItemStream.getFieldName();
+        return fileItemInput.getFieldName();
     }
 
     /**
@@ -52,10 +50,10 @@ public class FileItemStreamMultipartFile implements MultipartFile {
      */
     @Override
     public String getOriginalFilename() {
-        final String filename = this.fileItemStream.getName();
+        final String filename = this.fileItemInput.getName();
         if (filename == null) {
             // Should never happen.
-            return StringUtils.EMPTY;
+            return "";
         }
         if (this.preserveFilename) {
             // Do not try to strip off a path...
@@ -71,7 +69,7 @@ public class FileItemStreamMultipartFile implements MultipartFile {
      */
     @Override
     public String getContentType() {
-        return fileItemStream.getContentType();
+        return fileItemInput.getContentType();
     }
 
     /**
@@ -103,8 +101,8 @@ public class FileItemStreamMultipartFile implements MultipartFile {
      */
     @Override
     public InputStream getInputStream() throws IOException {
-        streamingMultipartHttpServletRequest.fileItemStreamReading(this.fileItemStream);
-        return fileItemStream.openStream();
+        streamingMultipartHttpServletRequest.fileItemInputReading(this.fileItemInput);
+        return fileItemInput.getInputStream();
     }
 
     /**

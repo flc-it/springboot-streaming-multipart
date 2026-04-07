@@ -23,14 +23,15 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 
-import javax.servlet.http.HttpServletRequest;
-
-import org.apache.commons.fileupload.FileItemIterator;
-import org.apache.commons.fileupload.FileItemStream;
-import org.apache.commons.fileupload.FileUpload;
-import org.apache.commons.fileupload.FileUploadBase;
-import org.apache.commons.fileupload.FileUploadException;
-import org.apache.commons.fileupload.servlet.ServletFileUpload;
+import org.apache.commons.fileupload2.core.FileItemInput;
+import org.apache.commons.fileupload2.core.FileItemInputIterator;
+import org.apache.commons.fileupload2.core.FileUploadSizeException;
+import org.apache.commons.fileupload2.jakarta.servlet5.JakartaServletFileUpload;
+import org.apache.commons.io.function.IORunnable;
+import org.apache.commons.io.function.IOSupplier;
+import org.flcit.springboot.streaming.multipart.commons.CommonsMultipartResolver;
+import org.flcit.springboot.streaming.multipart.commons.MultipartParsingResult;
+import org.flcit.springboot.streaming.multipart.file.FileItemInputMultipartFile;
 import org.springframework.core.log.LogFormatUtils;
 import org.springframework.http.MediaType;
 import org.springframework.util.Assert;
@@ -42,12 +43,9 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
-import org.springframework.web.multipart.commons.CommonsMultipartResolver;
 import org.springframework.web.multipart.support.DefaultMultipartHttpServletRequest;
 
-import org.flcit.springboot.streaming.multipart.file.FileItemStreamMultipartFile;
-import org.flcit.springboot.streaming.multipart.functional.RunnableFileUploadException;
-import org.flcit.springboot.streaming.multipart.functional.SupplierFileUploadException;
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * 
@@ -71,16 +69,16 @@ public class StreamingMultipartResolver extends CommonsMultipartResolver {
      */
     public class StreamingMultipartHttpServletRequest extends DefaultMultipartHttpServletRequest {
 
-        private final FileItemIterator it;
+        private final FileItemInputIterator it;
         private final String encodingRequest;
-        private final FileUpload fileUpload;
-        private FileItemStream currentFileItemStream;
+        private final JakartaServletFileUpload<?,?> fileUpload;
+        private FileItemInput currentFileItemInput;
 
         public StreamingMultipartHttpServletRequest(HttpServletRequest request) {
             super(request);
             this.encodingRequest = StreamingMultipartResolver.this.determineEncoding(request);
             this.fileUpload = StreamingMultipartResolver.this.prepareFileUpload(encodingRequest);
-            this.it = run(() -> ((ServletFileUpload) fileUpload).getItemIterator(request));
+            this.it = run(() -> this.fileUpload.getItemIterator(request));
         }
 
         @Override
@@ -104,13 +102,13 @@ public class StreamingMultipartResolver extends CommonsMultipartResolver {
         }
 
         public boolean hasNext() {
-            return run(() -> currentFileItemStream != null || it.hasNext());
+            return run(() -> currentFileItemInput != null || it.hasNext());
         }
 
-        public void consumeStreams(Consumer<FileItemStream> consumer) {
-            if (currentFileItemStream != null) {
-                consumer.accept(currentFileItemStream);
-                currentFileItemStream = null;
+        public void consumeStreams(Consumer<FileItemInput> consumer) {
+            if (currentFileItemInput != null) {
+                consumer.accept(currentFileItemInput);
+                currentFileItemInput = null;
             }
             run(() -> {
                 while (it.hasNext()) {
@@ -119,52 +117,47 @@ public class StreamingMultipartResolver extends CommonsMultipartResolver {
             });
         }
 
-        private void run(RunnableFileUploadException runnable) {
+        private void run(IORunnable runnable) {
             run(() -> {
                 runnable.run();
                 return null;
             });
         }
 
-        private <T> T run(SupplierFileUploadException<T> supplier) {
+        private <T> T run(IOSupplier<T> supplier) {
             try {
                 return supplier.get();
-            } catch (FileUploadBase.SizeLimitExceededException ex) {
-                throw new MaxUploadSizeExceededException(fileUpload.getSizeMax(), ex);
             }
-            catch (FileUploadBase.FileSizeLimitExceededException ex) {
-                throw new MaxUploadSizeExceededException(fileUpload.getFileSizeMax(), ex);
+            catch (FileUploadSizeException ex) {
+                throw new MaxUploadSizeExceededException(ex.getPermitted(), ex);
             }
-            catch (FileUploadException | IOException ex) {
+            catch (IOException ex) {
                 throw new MultipartException(EXCEPTION_MESSAGE, ex);
             }
         }
 
         public void consumeFiles(Consumer<MultipartFile> consumer) {
-            if (currentFileItemStream != null) {
-                consumer.accept(parseUploadFile(currentFileItemStream));
-                currentFileItemStream = null;
+            if (currentFileItemInput != null) {
+                consumer.accept(parseUploadFile(currentFileItemInput));
+                currentFileItemInput = null;
             }
             try {
                 while (it.hasNext()) {
-                    FileItemStream fileItemStream = it.next();
-                    if (!fileItemStream.isFormField()) {
-                        consumer.accept(parseUploadFile(fileItemStream));
+                    FileItemInput fileItemInput = it.next();
+                    if (!fileItemInput.isFormField()) {
+                        consumer.accept(parseUploadFile(fileItemInput));
                     }
                 }
             }
-            catch (FileUploadBase.SizeLimitExceededException ex) {
-                throw new MaxUploadSizeExceededException(fileUpload.getSizeMax(), ex);
+            catch (FileUploadSizeException ex) {
+                throw new MaxUploadSizeExceededException(fileUpload.getMaxFileSize(), ex);
             }
-            catch (FileUploadBase.FileSizeLimitExceededException ex) {
-                throw new MaxUploadSizeExceededException(fileUpload.getFileSizeMax(), ex);
-            }
-            catch (FileUploadException | IOException ex) {
+            catch (IOException ex) {
                 throw new MultipartException(EXCEPTION_MESSAGE, ex);
             }
         }
 
-        private MultipartParsingResult parseFileItems() throws FileUploadException, IOException {
+        private MultipartParsingResult parseFileItems() throws IOException {
 
             MultiValueMap<String, MultipartFile> multipartFiles = new LinkedMultiValueMap<>();
             Map<String, String[]> multipartParameters = new HashMap<>();
@@ -177,16 +170,16 @@ public class StreamingMultipartResolver extends CommonsMultipartResolver {
             }
 
             // Extract only begining multipart parameters and multipart files are stream after
-            if (currentFileItemStream == null) {
+            if (currentFileItemInput == null) {
                 while (this.it.hasNext()) {
-                    FileItemStream fileItemStream = it.next();
-                    if (fileItemStream.isFormField()) {
-                        parseFormField(fileItemStream, multipartParameters, multipartParameterContentTypes);
+                    FileItemInput fileItemInput = it.next();
+                    if (fileItemInput.isFormField() || !StringUtils.hasLength(fileItemInput.getName())) {
+                        parseFormField(fileItemInput, multipartParameters, multipartParameterContentTypes);
                     }
                     else {
                         //1st file must be preload
-                        multipartFiles.add(fileItemStream.getFieldName(), parseUploadFile(fileItemStream));
-                        this.currentFileItemStream = fileItemStream;
+                        multipartFiles.add(fileItemInput.getFieldName(), parseUploadFile(fileItemInput));
+                        this.currentFileItemInput = fileItemInput;
                         //Files must be send streaming after pre process
                         return new MultipartParsingResult(multipartFiles, multipartParameters, multipartParameterContentTypes);
                     }
@@ -195,7 +188,7 @@ public class StreamingMultipartResolver extends CommonsMultipartResolver {
             return new MultipartParsingResult(multipartFiles, multipartParameters, multipartParameterContentTypes);
         }
 
-        private void parseFormField(FileItemStream fileItem, Map<String, String[]> multipartParameters, Map<String, String> multipartParameterContentTypes) throws IOException {
+        private void parseFormField(FileItemInput fileItem, Map<String, String[]> multipartParameters, Map<String, String> multipartParameterContentTypes) throws IOException {
             final String value = getValue(fileItem);
             String[] curParam = multipartParameters.get(fileItem.getFieldName());
             // simple form field or array of simple form fields
@@ -204,9 +197,9 @@ public class StreamingMultipartResolver extends CommonsMultipartResolver {
             multipartParameterContentTypes.put(fileItem.getFieldName(), fileItem.getContentType());
         }
 
-        private final String getValue(final FileItemStream fileItem) throws IOException {
+        private final String getValue(final FileItemInput fileItem) throws IOException {
             final String partEncoding = determineEncoding(fileItem.getContentType(), encodingRequest);
-            final byte[] bytes = FileCopyUtils.copyToByteArray(fileItem.openStream());
+            final byte[] bytes = FileCopyUtils.copyToByteArray(fileItem.getInputStream());
             try {
                 return new String(bytes, partEncoding);
             }
@@ -219,13 +212,13 @@ public class StreamingMultipartResolver extends CommonsMultipartResolver {
             }
         }
 
-        private MultipartFile parseUploadFile(FileItemStream fileItem) {
+        private MultipartFile parseUploadFile(FileItemInput fileItem) {
             // multipart file field
             MultipartFile file = createMultipartFile(fileItem);
             LogFormatUtils.traceDebug(StreamingMultipartResolver.this.logger, traceOn ->
                 "Part '" + file.getName() + "', size " + file.getSize() +
                 " bytes, filename='" + file.getOriginalFilename() + "'" +
-                (Boolean.TRUE.equals(traceOn) ? ", storage=streaming" : org.flcit.commons.core.util.StringUtils.EMPTY)
+                (Boolean.TRUE.equals(traceOn) ? ", storage=streaming" : "")
             );
             return file;
         }
@@ -239,13 +232,13 @@ public class StreamingMultipartResolver extends CommonsMultipartResolver {
             return (charset != null ? charset.name() : defaultEncoding);
         }
 
-        private MultipartFile createMultipartFile(FileItemStream fileItemStream) {
-            return new FileItemStreamMultipartFile(fileItemStream, this);
+        private MultipartFile createMultipartFile(FileItemInput fileItemInput) {
+            return new FileItemInputMultipartFile(fileItemInput, this);
         }
 
-        public void fileItemStreamReading(FileItemStream fileItemStream) {
-            if (fileItemStream == this.currentFileItemStream) {
-                this.currentFileItemStream = null;
+        public void fileItemInputReading(FileItemInput fileItemInput) {
+            if (fileItemInput == this.currentFileItemInput) {
+                this.currentFileItemInput = null;
             }
         }
 

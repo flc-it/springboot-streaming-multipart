@@ -36,14 +36,14 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.function.Consumer;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
-import org.apache.commons.fileupload.FileItemIterator;
-import org.apache.commons.fileupload.FileItemStream;
-import org.apache.commons.fileupload.FileUpload;
-import org.apache.commons.fileupload.FileUploadBase;
-import org.apache.commons.fileupload.FileUploadException;
-import org.apache.commons.fileupload.servlet.ServletFileUpload;
+import org.apache.commons.fileupload2.core.FileItemInput;
+import org.apache.commons.fileupload2.core.FileItemInputIterator;
+import org.apache.commons.fileupload2.core.FileUploadByteCountLimitException;
+import org.apache.commons.fileupload2.core.FileUploadException;
+import org.apache.commons.fileupload2.core.FileUploadSizeException;
+import org.apache.commons.fileupload2.jakarta.servlet5.JakartaServletFileUpload;
 import org.apache.commons.logging.Log;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -51,7 +51,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.MultipartFile;
-
+import org.springframework.web.util.WebUtils;
 import org.flcit.springboot.commons.test.MockitoBaseTest;
 import org.flcit.springboot.commons.test.util.LogTestUtils;
 import org.flcit.springboot.streaming.multipart.resolver.StreamingMultipartResolver.StreamingMultipartHttpServletRequest;
@@ -59,17 +59,19 @@ import org.flcit.springboot.streaming.multipart.resolver.StreamingMultipartResol
 class StreamingMultipartResolverTest implements MockitoBaseTest {
 
     @Mock
-    private FileItemIterator iterator;
+    private FileItemInputIterator iterator;
 
     @Mock
-    private FileItemStream stream;
+    private FileItemInput stream;
 
+    @SuppressWarnings("rawtypes")
     @Mock
-    private ServletFileUpload fileUpload;
+    private JakartaServletFileUpload fileUpload;
 
     @Mock
     private MockStreamingMultipartResolver streamingMultipartResolver;
 
+    @SuppressWarnings("unchecked")
     @Test
     void tests() throws Exception {
         when(streamingMultipartResolver.prepareFileUpload(nullable(String.class))).thenReturn(fileUpload);
@@ -86,13 +88,13 @@ class StreamingMultipartResolverTest implements MockitoBaseTest {
         prepareMocks();
         final StreamingMultipartHttpServletRequest request = ((StreamingMultipartHttpServletRequest) streamingMultipartResolver.resolveMultipart(new MockHttpServletRequest()));
         when(iterator.hasNext()).thenThrow(FileUploadException.class);
-        assertThrows(MultipartException.class, () -> request.initializeMultipart());
+        assertThrows(MultipartException.class, request::initializeMultipart);
         doThrow(IOException.class).when(iterator).hasNext();
-        assertThrows(MultipartException.class, () -> request.initializeMultipart());
-        doThrow(FileUploadBase.SizeLimitExceededException.class).when(iterator).hasNext();
-        assertThrows(MaxUploadSizeExceededException.class, () -> request.initializeMultipart());
+        assertThrows(MultipartException.class, request::initializeMultipart);
+        doThrow(FileUploadSizeException.class).when(iterator).hasNext();
+        assertThrows(MaxUploadSizeExceededException.class, request::initializeMultipart);
         doReturn(false).when(iterator).hasNext();
-        assertDoesNotThrow(() -> request.initializeMultipart());
+        assertDoesNotThrow(request::initializeMultipart);
     }
 
     @Test
@@ -106,6 +108,7 @@ class StreamingMultipartResolverTest implements MockitoBaseTest {
         when(iterator.hasNext()).thenReturn(true, false);
         when(iterator.next()).thenReturn(stream);
         when(stream.getFieldName()).thenReturn("field");
+        when(stream.getName()).thenReturn("name");
         final Log logger = mock(Log.class);
         LogTestUtils.setLogger(streamingMultipartResolver, "logger", logger);
         request.initializeMultipart();
@@ -120,9 +123,9 @@ class StreamingMultipartResolverTest implements MockitoBaseTest {
         assertThrows(MultipartException.class, () -> request.consumeStreams(s -> { }));
         doThrow(IOException.class).when(iterator).hasNext();
         assertThrows(MultipartException.class, () -> request.consumeStreams(s -> { }));
-        doThrow(FileUploadBase.SizeLimitExceededException.class).when(iterator).hasNext();
+        doThrow(FileUploadByteCountLimitException.class).when(iterator).hasNext();
         assertThrows(MaxUploadSizeExceededException.class, () -> request.consumeStreams(s -> { }));
-        doThrow(FileUploadBase.FileSizeLimitExceededException.class).when(iterator).hasNext();
+        doThrow(FileUploadSizeException.class).when(iterator).hasNext();
         assertThrows(MaxUploadSizeExceededException.class, () -> request.consumeStreams(s -> { }));
     }
 
@@ -134,9 +137,9 @@ class StreamingMultipartResolverTest implements MockitoBaseTest {
         assertThrows(MultipartException.class, () -> request.consumeFiles(s -> { }));
         doThrow(IOException.class).when(iterator).hasNext();
         assertThrows(MultipartException.class, () -> request.consumeFiles(s -> { }));
-        doThrow(FileUploadBase.SizeLimitExceededException.class).when(iterator).hasNext();
+        doThrow(FileUploadByteCountLimitException.class).when(iterator).hasNext();
         assertThrows(MaxUploadSizeExceededException.class, () -> request.consumeFiles(s -> { }));
-        doThrow(FileUploadBase.FileSizeLimitExceededException.class).when(iterator).hasNext();
+        doThrow(FileUploadSizeException.class).when(iterator).hasNext();
         assertThrows(MaxUploadSizeExceededException.class, () -> request.consumeFiles(s -> { }));
     }
 
@@ -163,7 +166,7 @@ class StreamingMultipartResolverTest implements MockitoBaseTest {
         when(iterator.next()).thenReturn(stream);
         when(stream.isFormField()).thenReturn(true);
         when(stream.getFieldName()).thenReturn(field);
-        when(stream.openStream()).thenReturn(new ByteArrayInputStream(value.getBytes()));
+        when(stream.getInputStream()).thenReturn(new ByteArrayInputStream(value.getBytes()));
         when(stream.getContentType()).thenReturn("application/json;charset=UTF-8");
         request.initializeMultipart();
         assertEquals(value, request.getParameter(field));
@@ -180,7 +183,7 @@ class StreamingMultipartResolverTest implements MockitoBaseTest {
         when(iterator.next()).thenReturn(stream);
         when(stream.isFormField()).thenReturn(true);
         when(stream.getFieldName()).thenReturn(field);
-        when(stream.openStream()).thenReturn(new ByteArrayInputStream(value.getBytes()));
+        when(stream.getInputStream()).thenReturn(new ByteArrayInputStream(value.getBytes()));
         when(stream.getContentType()).thenReturn("application/json");
         final Log logger = mock(Log.class);
         LogTestUtils.setLogger(streamingMultipartResolver, "logger", logger);
@@ -201,6 +204,7 @@ class StreamingMultipartResolverTest implements MockitoBaseTest {
         when(iterator.hasNext()).thenReturn(true, false);
         when(iterator.next()).thenReturn(stream);
         when(stream.getFieldName()).thenReturn(field);
+        when(stream.getName()).thenReturn("filename");
         final Log logger = mock(Log.class);
         LogTestUtils.setLogger(streamingMultipartResolver, "logger", logger);
         when(logger.isDebugEnabled()).thenReturn(true);
@@ -210,28 +214,31 @@ class StreamingMultipartResolverTest implements MockitoBaseTest {
     }
 
     @Test
-    void fileItemStreamReadingTest() throws Exception {
+    void fileItemInputReadingTest() throws Exception {
         prepareMocks();
         final StreamingMultipartHttpServletRequest request = ((StreamingMultipartHttpServletRequest) streamingMultipartResolver.resolveMultipart(new MockHttpServletRequest()));
-        assertDoesNotThrow(() -> request.fileItemStreamReading(null));
-        assertDoesNotThrow(() -> request.fileItemStreamReading(stream));
+        assertDoesNotThrow(() -> request.fileItemInputReading(null));
+        assertDoesNotThrow(() -> request.fileItemInputReading(stream));
     }
 
-    private void prepareMocks() throws FileUploadException, IOException {
+    @SuppressWarnings("unchecked")
+    private void prepareMocks() throws IOException {
         when(streamingMultipartResolver.prepareFileUpload(nullable(String.class))).thenReturn(fileUpload);
         when(fileUpload.getItemIterator(any(HttpServletRequest.class))).thenReturn(iterator);
         when(streamingMultipartResolver.resolveMultipart(any())).thenCallRealMethod();
+        when(streamingMultipartResolver.determineEncoding(any())).thenCallRealMethod();
     }
 
     private static class MockStreamingMultipartResolver extends StreamingMultipartResolver {
 
         @Override
         protected String determineEncoding(HttpServletRequest request) {
-            return super.determineEncoding(request);
+            String encoding = request != null ? super.determineEncoding(request) : null;
+            return encoding != null ? encoding : WebUtils.DEFAULT_CHARACTER_ENCODING;
         }
 
         @Override
-        protected FileUpload prepareFileUpload(String encoding) {
+        protected JakartaServletFileUpload<?,?> prepareFileUpload(String encoding) {
             return super.prepareFileUpload(encoding);
         }
 
