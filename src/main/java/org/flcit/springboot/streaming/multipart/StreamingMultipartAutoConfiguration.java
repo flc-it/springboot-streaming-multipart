@@ -18,23 +18,20 @@ package org.flcit.springboot.streaming.multipart;
 
 import java.io.IOException;
 
-import javax.servlet.Servlet;
-
+import org.flcit.springboot.streaming.multipart.resolver.StreamingMultipartResolver;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication.Type;
-import org.springframework.boot.autoconfigure.web.servlet.MultipartAutoConfiguration;
-import org.springframework.boot.autoconfigure.web.servlet.MultipartProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.servlet.autoconfigure.MultipartAutoConfiguration;
+import org.springframework.boot.servlet.autoconfigure.MultipartProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.PropertySource;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.DispatcherServlet;
 
-import org.flcit.springboot.streaming.multipart.resolver.StreamingMultipartResolver;
+import jakarta.servlet.Servlet;
 
 /**
  * 
@@ -55,12 +52,8 @@ public class StreamingMultipartAutoConfiguration {
      * @throws IOException
      */
     @Bean(DispatcherServlet.MULTIPART_RESOLVER_BEAN_NAME)
-    public StreamingMultipartResolver multipartResolver(MultipartProperties multipartProperties) throws IOException {
+    public StreamingMultipartResolver multipartResolver(MultipartProperties multipartProperties) {
         final StreamingMultipartResolver multipartResolver = new StreamingMultipartResolver();
-        if (StringUtils.hasLength(multipartProperties.getLocation())) {
-            multipartResolver.setUploadTempDir(new FileSystemResource(multipartProperties.getLocation()));
-        }
-        multipartResolver.setMaxInMemorySize((int) multipartProperties.getFileSizeThreshold().toBytes());
         multipartResolver.setMaxUploadSize(multipartProperties.getMaxRequestSize().toBytes());
         multipartResolver.setMaxUploadSizePerFile(multipartProperties.getMaxFileSize().toBytes());
         return multipartResolver;

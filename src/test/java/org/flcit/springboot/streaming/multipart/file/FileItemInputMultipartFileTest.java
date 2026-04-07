@@ -26,47 +26,46 @@ import static org.mockito.Mockito.when;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
-import org.apache.commons.fileupload.FileItemStream;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.springframework.util.FileCopyUtils;
-
+import org.apache.commons.fileupload2.core.FileItemInput;
 import org.flcit.commons.core.util.StringUtils;
 import org.flcit.springboot.commons.test.MockitoBaseTest;
 import org.flcit.springboot.streaming.multipart.resolver.StreamingMultipartResolver.StreamingMultipartHttpServletRequest;
 
-class FileItemStreamMultipartFileTest implements MockitoBaseTest {
+class FileItemInputMultipartFileTest implements MockitoBaseTest {
 
     private static final String FILE_NAME = "test.json";
 
     @Mock
-    private FileItemStream fileItemStream;
+    private FileItemInput fileItemInput;
 
     @Mock
     private StreamingMultipartHttpServletRequest streamingMultipartHttpServletRequest;
 
     @Test
     void tests() {
-        final FileItemStreamMultipartFile file = new FileItemStreamMultipartFile(fileItemStream, streamingMultipartHttpServletRequest);
+        final FileItemInputMultipartFile file = new FileItemInputMultipartFile(fileItemInput, streamingMultipartHttpServletRequest);
         assertFalse(file.isEmpty());
         assertEquals(-1, file.getSize());
-        assertThrows(UnsupportedOperationException.class, () -> file.getBytes());
-        when(fileItemStream.getFieldName()).thenReturn("file");
+        assertThrows(UnsupportedOperationException.class, file::getBytes);
+        when(fileItemInput.getFieldName()).thenReturn("file");
         assertEquals("file", file.getName());
-        when(fileItemStream.getContentType()).thenReturn("text/csv");
+        when(fileItemInput.getContentType()).thenReturn("text/csv");
         assertEquals("text/csv", file.getContentType());
     }
 
     @Test
     void originalFilenameTest() {
-        final FileItemStreamMultipartFile file = new FileItemStreamMultipartFile(fileItemStream, streamingMultipartHttpServletRequest);
+        final FileItemInputMultipartFile file = new FileItemInputMultipartFile(fileItemInput, streamingMultipartHttpServletRequest);
         assertEquals(StringUtils.EMPTY, file.getOriginalFilename());
-        when(fileItemStream.getName()).thenReturn(FILE_NAME);
+        when(fileItemInput.getName()).thenReturn(FILE_NAME);
         assertEquals(FILE_NAME, file.getOriginalFilename());
-        when(fileItemStream.getName()).thenReturn("C:\\" + FILE_NAME);
+        when(fileItemInput.getName()).thenReturn("C:\\" + FILE_NAME);
         assertEquals(FILE_NAME, file.getOriginalFilename());
-        when(fileItemStream.getName()).thenReturn("/usr/" + FILE_NAME);
+        when(fileItemInput.getName()).thenReturn("/usr/" + FILE_NAME);
         assertEquals(FILE_NAME, file.getOriginalFilename());
         file.setPreserveFilename(true);
         assertEquals("/usr/" + FILE_NAME, file.getOriginalFilename());
@@ -74,7 +73,7 @@ class FileItemStreamMultipartFileTest implements MockitoBaseTest {
 
     @Test
     void transferTest() {
-        final FileItemStreamMultipartFile file = new FileItemStreamMultipartFile(fileItemStream, streamingMultipartHttpServletRequest);
+        final FileItemInputMultipartFile file = new FileItemInputMultipartFile(fileItemInput, streamingMultipartHttpServletRequest);
         try (MockedStatic<Files> mock = mockStatic(Files.class)) {
             try (MockedStatic<FileCopyUtils> m2 = mockStatic(FileCopyUtils.class)) {
                 assertDoesNotThrow(() -> file.transferTo(Paths.get("test").toFile()));

@@ -39,21 +39,21 @@ class TestResource {
     static final String TEST_UPLOAD_FILES_URL_2_PATH = "/test/upload/files2";
 
     @PostMapping(path = TEST_UPLOAD_URL_PATH, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Response testUpload(@RequestPart Request request, @RequestPart MultipartFile fichier) {
+    public Response testUpload(@RequestPart("request") Request request, @RequestPart("fichier") MultipartFile fichier) {
         final Response response = new Response(request);
         response.addFile(new ResponseFile(fichier.getName(), fichier.getOriginalFilename(), fichier.getContentType()));
         return response;
     }
 
     @PostMapping(path = TEST_UPLOAD_FILES_URL_PATH, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Response testUploadFiles(@RequestPart Request request, StreamingMultipartHttpServletRequest streamingRequest) {
+    public Response testUploadFiles(@RequestPart("request") Request request, StreamingMultipartHttpServletRequest streamingRequest) {
         final Response response = new Response(request);
         streamingRequest.consumeFiles(f -> response.addFile(new ResponseFile(f.getName(), f.getOriginalFilename(), f.getContentType())));
         return response;
     }
 
     @PostMapping(path = TEST_UPLOAD_FILES_URL_2_PATH, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Response testUploadFiles2(@RequestPart Request request, StreamingMultipartHttpServletRequest streamingRequest) {
+    public Response testUploadFiles2(@RequestPart("request") Request request, StreamingMultipartHttpServletRequest streamingRequest) {
         final Response response = new Response(request);
         streamingRequest.consumeStreams(f -> response.addFile(new ResponseFile(f.getFieldName(), f.getName(), f.getContentType())));
         return response;
