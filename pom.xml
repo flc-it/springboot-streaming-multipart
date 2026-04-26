@@ -4,7 +4,7 @@
 
     <groupId>org.flcit.springboot.streaming</groupId>
     <artifactId>springboot-streaming-multipart</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
 
     <name>${project.artifactId}</name>
@@ -33,7 +33,7 @@
         <connection>scm:git:git@github.com:flc-it/springboot-streaming-multipart.git</connection>
         <developerConnection>scm:git:ssh://git@github.com/flc-it/springboot-streaming-multipart.git</developerConnection>
         <url>https://github.com/flc-it/springboot-streaming-multipart</url>
-        <tag>HEAD</tag>
+        <tag>springboot-streaming-multipart-1.0.0</tag>
     </scm>
 
     <!-- Paramètres gestionnaire de ticket -->
