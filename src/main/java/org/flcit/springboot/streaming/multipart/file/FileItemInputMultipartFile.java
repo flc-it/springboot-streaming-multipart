@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 
 import org.apache.commons.fileupload2.core.FileItemInput;
+import org.flcit.commons.core.util.StringUtils;
 import org.flcit.springboot.streaming.multipart.resolver.StreamingMultipartResolver.StreamingMultipartHttpServletRequest;
 import org.springframework.util.FileCopyUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -53,7 +54,7 @@ public class FileItemInputMultipartFile implements MultipartFile {
         final String filename = this.fileItemInput.getName();
         if (filename == null) {
             // Should never happen.
-            return "";
+            return StringUtils.EMPTY;
         }
         if (this.preserveFilename) {
             // Do not try to strip off a path...

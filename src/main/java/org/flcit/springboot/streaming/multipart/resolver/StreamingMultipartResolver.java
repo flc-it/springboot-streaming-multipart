@@ -17,6 +17,7 @@
 package org.flcit.springboot.streaming.multipart.resolver;
 
 import java.io.IOException;
+
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.util.HashMap;
@@ -218,7 +219,7 @@ public class StreamingMultipartResolver extends CommonsMultipartResolver {
             LogFormatUtils.traceDebug(StreamingMultipartResolver.this.logger, traceOn ->
                 "Part '" + file.getName() + "', size " + file.getSize() +
                 " bytes, filename='" + file.getOriginalFilename() + "'" +
-                (Boolean.TRUE.equals(traceOn) ? ", storage=streaming" : "")
+                (Boolean.TRUE.equals(traceOn) ? ", storage=streaming" : org.flcit.commons.core.util.StringUtils.EMPTY)
             );
             return file;
         }
